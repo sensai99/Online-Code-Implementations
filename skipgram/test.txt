@@ -1,0 +1,21 @@
+sentence_index	sentence
+1	drink milk
+2	drink cold water
+3	drink cold cola
+4	drink juice
+5	drink cola
+6	eat bacon
+7	eat mango
+8	eat cherry
+9	eat apple
+10	juice with sugar
+11	cola with sugar
+12	mango is fruit
+13	apple is fruit
+14	cherry is fruit
+15	Berlin is Germany
+16	Boston is USA
+17	Mercedes from Germany
+18	Mercedes is a car
+19	Ford from USA
+20	Ford is a car

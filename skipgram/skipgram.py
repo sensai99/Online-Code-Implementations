@@ -3,23 +3,27 @@ import random
 from collections import defaultdict
 from preprocess_dataset import StanfordSentiment
 
+random.seed(31415)
+np.random.seed(9265)
+
 class skipgram:
 
-    def __init__(self, corpus, window_size = 1, negative_samples_count = 1, embedding_size = 100, num_epochs = 10, learning_rate = 0.01):
+    def __init__(self, corpus, window_size = 2, negative_samples_count = 1, embedding_size = 4, num_epochs = 10000, learning_rate = 0.05):
         self.corpus = corpus
 
         self.word_freq = defaultdict(int)
         self.word_index = {}
         self.ind2word = {}
         self.dataset = []
+        self.window_size = window_size
         self.construct_dataset()
 
+        # lookup table used for negative sampling
         self.negative_sample_table_size = 1000000
         self.negative_sample_table = [0] * self.negative_sample_table_size
         self.construct_negative_sample_table()
         
         # hyperparameters
-        self.window_size = window_size
         self.output_layer_size = self.input_layer_size = self.vocab_size
         self.embedding_size = embedding_size
         self.num_epochs = num_epochs
@@ -34,7 +38,7 @@ class skipgram:
         for sentence in self.corpus:
             for i, word in enumerate(sentence):
                 self.word_freq[word] += 1
-                self.dataset.append([word] + sentence[i + 1 : i + 3] + sentence[i - 2 : i])
+                self.dataset.append([word] + sentence[i + 1 : i + self.window_size + 1] + sentence[i - self.window_size : i])
         
         self.word_index = {word: i for i, word in enumerate(self.word_freq.keys())}
         self.ind2word = {self.word_index[word]: word for word in self.word_index.keys()}
@@ -44,19 +48,13 @@ class skipgram:
         word_freq = [self.word_freq[self.ind2word[i]] for i in range(self.vocab_size)]
         word_freq = np.array(word_freq) ** 0.75
         word_freq = word_freq / np.sum(word_freq)
-        word_freq = word_freq * self.negative_sample_table_size
-
-        # print(len(word_freq))
+        word_freq = np.cumsum(word_freq) * self.negative_sample_table_size
 
         j = 0
         for i in range(0, self.negative_sample_table_size):
             while i > word_freq[j]:
                 j += 1
             self.negative_sample_table[i] = j
-
-        # for i, freq in enumerate(word_freq):
-        #     self.negative_sample_table += [i] * int(freq)
-        print("len",  len(self.negative_sample_table))
 
     def word2onehot(self, word):
         one_hot = np.zeros(self.vocab_size)
@@ -81,17 +79,16 @@ class skipgram:
     def train(self):
         for epoch in range(self.num_epochs):
             print("Epoch: ", epoch)
+            epoch_loss = 0
             for word_batch in self.dataset:
                 target_word = word_batch[0]
-                # print("-- Training on target word: ", target_word)
                 one_hot_word = self.word2onehot(target_word)
                 for context_word in word_batch[1:]:
-                    # print("---- With context word: ", context_word)
                     negative_samples = self.get_negative_samples(target_word, context_word)
                     h, word_similarities = self.forward_pass(one_hot_word, context_word, negative_samples)
-                    loss = self.compute_loss(word_similarities)
-                    # print("----- Loss: ", loss)
+                    epoch_loss += self.compute_loss(word_similarities)
                     self.backward_propagation(h, word_similarities, target_word, context_word, negative_samples)
+            print("----- Loss: ", epoch_loss)
 
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-1 * x))
@@ -99,9 +96,9 @@ class skipgram:
     def forward_pass(self, one_hot_word, context_word, negative_samples):
         h = np.dot(self.word_weights.T, one_hot_word)
         word_similarites = []
-        word_similarites.append(np.dot(self.context_weights.T[self.word_index[context_word]], h))
+        word_similarites.append((np.dot(self.context_weights.T[self.word_index[context_word]], h)))
         for negative_sample in negative_samples:
-            word_similarites.append(np.log(self.sigmoid(-np.dot(self.context_weights.T[self.word_index[negative_sample]], h))))
+            word_similarites.append(np.dot(self.context_weights.T[self.word_index[negative_sample]], h))
         return h, word_similarites
 
     # Reference - https://aegis4048.github.io/optimize_computational_efficiency_of_skip-gram_with_negative_sampling
@@ -113,8 +110,8 @@ class skipgram:
             i += 1
         
         context_word_gradients = (self.sigmoid(word_similarities[0]) - 1) * h
+        
         negative_samples_gradients = []
-
         i = 1
         for negative_sample in negative_samples:
             negative_samples_gradients.append(self.sigmoid(word_similarities[i]) * h)
@@ -137,11 +134,8 @@ class skipgram:
 
 
 if __name__ ==  '__main__':
-    dataset = StanfordSentiment(path = "./datasetSentences.txt")
+    dataset = StanfordSentiment(path = './test.txt')
     sample_corpus = dataset.get_dataset()
-    # print(sample_corpus)
     # sampleCorpus = [["quick", "brown", "fox", "jumped", "over", "the", "lazy", "dog"]]
     word2vec = skipgram(corpus = sample_corpus)
-    # print(word2vec.dataset)
-    # print(word2vec.ind2word)
     word2vec.train()
