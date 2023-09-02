@@ -34,6 +34,15 @@ class skipgram:
         self.word_weights = np.random.uniform(-1, 1, (self.vocab_size, self.embedding_size))
         self.context_weights = np.random.uniform(-1, 1, (self.embedding_size, self.output_layer_size))
     
+    def get_word_index(self):
+        return self.word_index
+    
+    def get_word_freq(self):
+        return self.word_freq
+
+    def get_word_vectors(self):
+        return self.word_weights
+
     def construct_dataset(self):
         for sentence in self.corpus:
             for i, word in enumerate(sentence):
@@ -132,10 +141,10 @@ class skipgram:
         for i, negative_sample in enumerate(negative_samples):
             self.context_weights[:, self.word_index[negative_sample]] -= self.learning_rate * negative_samples_gradients[i]
 
-
 if __name__ ==  '__main__':
     dataset = StanfordSentiment(path = './test.txt')
     sample_corpus = dataset.get_dataset()
+    
     # sampleCorpus = [["quick", "brown", "fox", "jumped", "over", "the", "lazy", "dog"]]
     word2vec = skipgram(corpus = sample_corpus)
     word2vec.train()
