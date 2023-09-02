@@ -8,7 +8,7 @@ np.random.seed(9265)
 
 class skipgram:
 
-    def __init__(self, corpus, window_size = 2, negative_samples_count = 1, embedding_size = 4, num_epochs = 10000, learning_rate = 0.05):
+    def __init__(self, corpus, window_size = 2, negative_samples_count = 1, embedding_size = 4, num_epochs = 10000, learning_rate = 0.005):
         self.corpus = corpus
 
         self.word_freq = defaultdict(int)
@@ -96,7 +96,7 @@ class skipgram:
     def forward_pass(self, one_hot_word, context_word, negative_samples):
         h = np.dot(self.word_weights.T, one_hot_word)
         word_similarites = []
-        word_similarites.append((np.dot(self.context_weights.T[self.word_index[context_word]], h)))
+        word_similarites.append(np.dot(self.context_weights.T[self.word_index[context_word]], h))
         for negative_sample in negative_samples:
             word_similarites.append(np.dot(self.context_weights.T[self.word_index[negative_sample]], h))
         return h, word_similarites
