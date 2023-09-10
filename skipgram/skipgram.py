@@ -8,7 +8,7 @@ np.random.seed(9265)
 
 class skipgram:
 
-    def __init__(self, corpus, window_size = 2, negative_samples_count = 1, embedding_size = 4, num_epochs = 10000, learning_rate = 0.005):
+    def __init__(self, corpus, window_size = 2, negative_samples_count = 2, embedding_size = 4, num_epochs = 10000, learning_rate = 0.0001):
         self.corpus = corpus
 
         self.word_freq = defaultdict(int)
@@ -47,7 +47,9 @@ class skipgram:
         for sentence in self.corpus:
             for i, word in enumerate(sentence):
                 self.word_freq[word] += 1
-                self.dataset.append([word] + sentence[i + 1 : i + self.window_size + 1] + sentence[i - self.window_size : i])
+                right_index = min(i + self.window_size + 1, len(sentence))
+                left_index = max(i - self.window_size, 0)
+                self.dataset.append([word] + sentence[i + 1 : right_index] + sentence[left_index : i])
         
         self.word_index = {word: i for i, word in enumerate(self.word_freq.keys())}
         self.ind2word = {self.word_index[word]: word for word in self.word_index.keys()}
@@ -129,8 +131,11 @@ class skipgram:
         return target_word_gradients, context_word_gradients, negative_samples_gradients
     
     def compute_loss(self, word_similarities):
-        loss = np.log(self.sigmoid(word_similarities[0]))
-        loss += np.sum(np.log(self.sigmoid(-1 * word_similarities[1:])))
+        pos_loss = np.log(self.sigmoid(word_similarities[0]))
+        loss = pos_loss
+        
+        neg_loss = np.sum(np.log(self.sigmoid(-1 * np.array(word_similarities[1:]))))
+        loss += neg_loss
         return -loss
     
     def backward_propagation(self, h, word_similarities, target_word, context_word, negative_samples):

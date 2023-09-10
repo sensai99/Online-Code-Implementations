@@ -10,7 +10,7 @@ if __name__ == '__main__':
     sample_corpus = dataset.get_dataset()
 
     # train word2vec
-    word2vec = skipgram(corpus = sample_corpus, window_size = 2, negative_samples_count = 1, embedding_size = 5, num_epochs = 10000, learning_rate = 0.001)
+    word2vec = skipgram(corpus = sample_corpus, window_size = 2, negative_samples_count = 1, embedding_size = 4, num_epochs = 10000, learning_rate = 0.005)
     word2vec.train()
 
     word_index = word2vec.get_word_index()
