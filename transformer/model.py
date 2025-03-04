@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
+import math
 
 class InputEmbeddings(nn.Module):
 
     def __init__(self, d_model: int, vocab_size: int):
-        super.__init__()
+        super().__init__()
         self.d_model = d_model
         self.vocab_size = vocab_size
         
@@ -16,7 +17,7 @@ class InputEmbeddings(nn.Module):
     def forward(self, x):
         # Diff: math.sqrt?
         # Why do we multiply by d_model
-        return self.embedding(x) * torch.sqrt(self.d_model)
+        return self.embedding(x) * math.sqrt(self.d_model)
 
 
 class PositionalEmbeddings(nn.Module):
@@ -28,17 +29,17 @@ class PositionalEmbeddings(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
         # (1, seq_len, d_model)
-        self.pe = torch.zeros((1, self.seq_len, self.d_model))
+        pe = torch.zeros((1, self.seq_len, self.d_model))
 
         # (seq_len, 1)
         pos = torch.arange(0, self.seq_len, dtype = torch.float).unsqueeze(1)
-        den = torch.exp(torch.arange(0, self.d_model, 2).float() * (-torch.log(10000.0) / self.d_model))
+        den = torch.exp(torch.arange(0, self.d_model, 2).float() * (-math.log(10000) / self.d_model))
 
         temp = pos/den
-        self.pe[0, :, 0::2] = torch.sin(temp)
-        self.pe[0, :, 1::2] = torch.cos(temp)
+        pe[0, :, 0::2] = torch.sin(temp)
+        pe[0, :, 1::2] = torch.cos(temp)
 
-        self.register_buffer('pe', self.pe)
+        self.register_buffer('pe', pe)
         return
     
     def forward(self, x):
@@ -51,6 +52,7 @@ class PositionalEmbeddings(nn.Module):
 class LayerNorm(nn.Module):
 
     def __init__(self, eps: float = 1e-6):
+        super().__init__()
         self.eps = eps
         
         # 1. What is the significance of alpha and beta?
@@ -108,7 +110,7 @@ class MultiHeadAttentionBlock(nn.Module):
         # W_o weight matrix (applied at the end of the attention mechanism)
         self.w_o = nn.Linear(d_model, d_model)
 
-        self.dropout = nn.Droput(dropout)
+        self.dropout = nn.Dropout(dropout)
         return
     
     @staticmethod
@@ -183,7 +185,7 @@ class EncoderBlock(nn.Module):
 class Encoder(nn.Module):
 
     def __init__(self, layers = nn.ModuleList) -> None:
-        super.__init__()
+        super().__init__()
         self.layers = layers
         self.norm = LayerNorm()
 
@@ -217,6 +219,7 @@ class DecoderBlock(nn.Module):
 class Decoder(nn.Module):
 
     def __init__(self, layers: nn.ModuleList):
+        super().__init__()
         self.layers = layers
         self.norm = LayerNorm()
         return
@@ -243,7 +246,7 @@ class ProjectionLayer(nn.Module):
 class Transformer(nn.Module):
 
     def __init__(self, encoder: Encoder, src_emb: InputEmbeddings, src_pos: PositionalEmbeddings, decoder: Decoder, tgt_emb: InputEmbeddings, tgt_pos: PositionalEmbeddings, projectionLayer: ProjectionLayer):
-        super.__init__()
+        super().__init__()
         self.encoder = encoder
         self.src_emb = src_emb
         self.src_pos = src_pos
@@ -292,7 +295,7 @@ def build_transformer(src_vocab_size: int, tgt_vocab_size: int, src_seq_len: int
     # -> MultiHeadAttn block + FeedForward block
     encoder_block_layers = []
     for _ in range(N):
-        EncoderBlock(MultiHeadAttentionBlock(d_model, h, dropout), FeedForwardBlock(in_dim = d_model, hidden_dim = ff_hidden_dim, dropout = dropout))
+        EncoderBlock(MultiHeadAttentionBlock(d_model, h, dropout), FeedForwardBlock(in_dim = d_model, hidden_dim = ff_hidden_dim, dropout = dropout), dropout)
     encoder_block_layers = nn.ModuleList(encoder_block_layers)
 
     # Encoder
@@ -302,7 +305,7 @@ def build_transformer(src_vocab_size: int, tgt_vocab_size: int, src_seq_len: int
     # -> MultiHeadAttn block (self) + MultiHeadAttn block (cross) + FF block
     decoder_block_layers = []
     for _ in range(N):
-        DecoderBlock(MultiHeadAttentionBlock(d_model, h, dropout), MultiHeadAttentionBlock(d_model, h, dropout), FeedForwardBlock(in_dim = d_model, hidden_dim = ff_hidden_dim, dropout = dropout))
+        DecoderBlock(MultiHeadAttentionBlock(d_model, h, dropout), MultiHeadAttentionBlock(d_model, h, dropout), FeedForwardBlock(in_dim = d_model, hidden_dim = ff_hidden_dim, dropout = dropout), dropout)
     decoder_block_layers = nn.ModuleList(decoder_block_layers)
 
     # Decoder

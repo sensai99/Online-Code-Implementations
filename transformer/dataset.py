@@ -16,28 +16,28 @@ class BilingualDataset(Dataset):
         self.tgt_lang = tgt_lang
         self.tgt_seq_len = tgt_seq_len
 
-        self.src_sos_token = torch.Tensor([src_tokenizer.token_to_id(['SOS'])], dtype = torch.int64)
-        self.src_eos_token = torch.Tensor([src_tokenizer.token_to_id(['EOS'])], dtype = torch.int64)
-        self.src_pad_token = torch.Tensor([src_tokenizer.token_to_id(['PAD'])], dtype = torch.int64)
-
-        self.tgt_sos_token = torch.Tensor([tgt_tokenizer.token_to_id(['SOS'])], dtype = torch.int64)
-        self.tgt_eos_token = torch.Tensor([tgt_tokenizer.token_to_id(['EOS'])], dtype = torch.int64)
-        self.tgt_pad_token = torch.Tensor([tgt_tokenizer.token_to_id(['PAD'])], dtype = torch.int64)
+        self.src_sos_token = torch.tensor([src_tokenizer.token_to_id('[SOS]')], dtype = torch.int64)
+        self.src_eos_token = torch.tensor([src_tokenizer.token_to_id('[EOS]')], dtype = torch.int64)
+        self.src_pad_token = torch.tensor([src_tokenizer.token_to_id('[PAD]')], dtype = torch.int64)
+        
+        self.tgt_sos_token = torch.tensor([tgt_tokenizer.token_to_id('[SOS]')], dtype = torch.int64)
+        self.tgt_eos_token = torch.tensor([tgt_tokenizer.token_to_id('[EOS]')], dtype = torch.int64)
+        self.tgt_pad_token = torch.tensor([tgt_tokenizer.token_to_id('[PAD]')], dtype = torch.int64)
         return
     
     def __len__(self):
         return len(self.dataset)
     
     def __getitem__(self, idx):
-        src_target_pair = self.ds[idx]
+        src_target_pair = self.dataset[idx]
         src_txt = src_target_pair['translation'][self.src_lang]
         tgt_txt = src_target_pair['translation'][self.tgt_lang]
 
         src_input_tokens = self.src_tokenizer.encode(src_txt).ids
         tgt_input_tokens = self.src_tokenizer.encode(tgt_txt).ids
 
-        src_num_padding_tokens = self.seq_len - len(src_input_tokens) - 2
-        tgt_num_padding_tokens = self.seq_len - len(tgt_input_tokens) - 1
+        src_num_padding_tokens = self.src_seq_len - len(src_input_tokens) - 2
+        tgt_num_padding_tokens = self.tgt_seq_len - len(tgt_input_tokens) - 1
 
         if src_num_padding_tokens < 0 or tgt_num_padding_tokens < 0:
             raise ValueError('Sentence is too long')
@@ -48,7 +48,7 @@ class BilingualDataset(Dataset):
                 self.src_sos_token,
                 torch.tensor(src_input_tokens, dtype = torch.int64),
                 self.src_eos_token,
-                torch.Tensor([self.src_pad_token] * src_num_padding_tokens, dtype = torch.int64)
+                torch.tensor([self.src_pad_token] * src_num_padding_tokens, dtype = torch.int64)
             ]
         )
 
@@ -57,7 +57,7 @@ class BilingualDataset(Dataset):
             [
                 self.tgt_sos_token,
                 torch.tensor(tgt_input_tokens, dtype = torch.int64),
-                torch.Tensor([self.tgt_pad_token] * tgt_num_padding_tokens, dtype = torch.int64)
+                torch.tensor([self.tgt_pad_token] * tgt_num_padding_tokens, dtype = torch.int64)
             ]
         )
 
@@ -66,7 +66,7 @@ class BilingualDataset(Dataset):
             [
                 torch.tensor(tgt_input_tokens, dtype = torch.int64),
                 self.tgt_eos_token,
-                torch.Tensor([self.tgt_pad_token] * src_num_padding_tokens, dtype = torch.int64)
+                torch.tensor([self.tgt_pad_token] * tgt_num_padding_tokens, dtype = torch.int64)
             ]
         )
 
@@ -77,9 +77,9 @@ class BilingualDataset(Dataset):
         # Need to get clarity on the shapes of these tensors
         return {
             "encoder_input": encoder_input, # (src_seq_len)
-            "encoder_mask": (encoder_input != self.pad_token).unsqueeze(0).unsqueeze(0).int(), # (1, 1, src_seq_len)
+            "encoder_mask": (encoder_input != self.src_pad_token).unsqueeze(0).unsqueeze(0).int(), # (1, 1, src_seq_len)
             "decoder_input": decoder_input, # (tgt_seq_len)
-            "decoder_mask": (decoder_input != self.pad_token).unsqueeze(0).unsqueeze(0).int() & causal_mask(decoder_input.size(0)), # Didn't understand this?
+            "decoder_mask": (decoder_input != self.tgt_pad_token).unsqueeze(0).unsqueeze(0).int() & causal_mask(decoder_input.size(0)), # Didn't understand this?
             "target": target,
             "src_txt": src_txt,
             "tgt_txt": tgt_txt
