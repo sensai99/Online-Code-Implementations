@@ -109,7 +109,7 @@ def train_model(config):
 
             # Call the transformer
             encoder_output = model.encode(encoder_input, encoder_mask) # (batch_size, src_seq_len, d_model)
-            decoder_output = model.decode(decoder_input, decoder_mask, encoder_input, encoder_mask) # (batch_size, tgt_seq_len, d_model)
+            decoder_output = model.decode(decoder_input, decoder_mask, encoder_output, encoder_mask) # (batch_size, tgt_seq_len, d_model)
             predictions = model.project(decoder_output) # (batch_size, tgt_seq_len, tgt_vocab_size)
 
             target = batch['target'].to(device) # (batch_size, tgt_seq_len)

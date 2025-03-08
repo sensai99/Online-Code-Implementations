@@ -35,7 +35,7 @@ class PositionalEmbeddings(nn.Module):
         pos = torch.arange(0, self.seq_len, dtype = torch.float).unsqueeze(1)
         den = torch.exp(torch.arange(0, self.d_model, 2).float() * (-math.log(10000) / self.d_model))
 
-        temp = pos/den
+        temp = pos * den
         pe[0, :, 0::2] = torch.sin(temp)
         pe[0, :, 1::2] = torch.cos(temp)
 
@@ -66,8 +66,8 @@ class LayerNorm(nn.Module):
     
     def forward(self, x):
         mu = torch.mean(x, dim = -1, keepdim = True)
-        var = torch.var(x, dim = -1, keepdim = True)
-        return (self.alpha * (x - mu)/torch.sqrt(var + self.eps)) + self.beta
+        std = torch.std(x, dim = -1, keepdim = True)
+        return (self.alpha * (x - mu)/(std + self.eps)) + self.beta
 
 class FeedForwardBlock(nn.Module):
 
@@ -103,12 +103,12 @@ class MultiHeadAttentionBlock(nn.Module):
         self.d_k = d_model // h
 
         # Key, Query, Value weight matrices
-        self.w_q = nn.Linear(d_model, d_model)
-        self.w_k = nn.Linear(d_model, d_model)
-        self.w_v = nn.Linear(d_model, d_model)
+        self.w_q = nn.Linear(d_model, d_model, bias = False)
+        self.w_k = nn.Linear(d_model, d_model, bias = False)
+        self.w_v = nn.Linear(d_model, d_model, bias = False)
         
         # W_o weight matrix (applied at the end of the attention mechanism)
-        self.w_o = nn.Linear(d_model, d_model)
+        self.w_o = nn.Linear(d_model, d_model, bias = False)
 
         self.dropout = nn.Dropout(dropout)
         return
@@ -117,10 +117,10 @@ class MultiHeadAttentionBlock(nn.Module):
     def attention(query, key, value, mask, dropout: nn.Dropout):
         d_k = query.shape[-1]
 
-        attn_scores = (query @ key.transpose(-2, -1)) / torch.sqrt(d_k)
+        attn_scores = (query @ key.transpose(-2, -1)) / math.sqrt(d_k)
         if mask is not None:
             # Then we need to apply the mask so that information from future tokens is not passed
-            attn_scores.masked_fill_(mask == 0, -torch.inf)
+            attn_scores.masked_fill_(mask == 0, -1e9)
 
         # (batch_size, h, seq_len, seq_len)
         attn_scores = torch.softmax(attn_scores, dim = -1)
@@ -140,7 +140,7 @@ class MultiHeadAttentionBlock(nn.Module):
         key = self.w_k(k)
         value = self.w_v(v)
 
-        # Split the query, key and values to h equal parts (Multi- head)
+        # Split the query, key and values to h equal parts (Multi-head)
         # (batch_size, seq_len, d_model) -> (batch_size, h, seq_len, d_k)
         # Transpose is done so that each head is pointing to the entire sequence - easy for matrix manipulation
         query = query.view(query.shape[0], query.shape[1], self.h, self.d_k).transpose(1, 2)
@@ -151,9 +151,7 @@ class MultiHeadAttentionBlock(nn.Module):
         attention_heads, self.attention_scores = MultiHeadAttentionBlock.attention(query, key, value, mask, self.dropout)
 
         # (batch_size, h, seq_len, d_k) -> (batch_size, seq_len, d_model)
-        attention_heads = attention_heads.transpose(1, 2)
-        # Diff: Need to use continuous
-        attention_heads = attention_heads.view(attention_heads.shape[0], attention_heads.shape[1], self.h * self.d_k)
+        attention_heads = attention_heads.transpose(1, 2).contiguous().view(attention_heads.shape[0], -1, self.h * self.d_k)
 
         attention_heads = self.w_o(attention_heads)
         return attention_heads
@@ -162,11 +160,11 @@ class ResidualConnection(nn.Module):
 
     def __init__(self, dropout: float):
         super().__init__()
-        self.dropout = dropout
+        self.dropout = nn.Dropout(dropout)
         self.norm = LayerNorm()
 
     def forward(self, x, sublayer):
-        return x + self.dropout(self.norm(sublayer(x)))
+        return x + self.dropout(sublayer(self.norm(x)))
 
 class EncoderBlock(nn.Module):
 
@@ -240,7 +238,9 @@ class ProjectionLayer(nn.Module):
     
     def forward(self, x):
         # (batch_size, seq_len, d_model) - (batch_size, seq_len, vocab_size)
-        return torch.softmax(self.proj(x), dim = -1)
+        # No need to apply softmax because the nn.CrossEntropyLoss already does it
+        return self.proj(x)
+    
      
 
 class Transformer(nn.Module):
@@ -295,7 +295,7 @@ def build_transformer(src_vocab_size: int, tgt_vocab_size: int, src_seq_len: int
     # -> MultiHeadAttn block + FeedForward block
     encoder_block_layers = []
     for _ in range(N):
-        EncoderBlock(MultiHeadAttentionBlock(d_model, h, dropout), FeedForwardBlock(in_dim = d_model, hidden_dim = ff_hidden_dim, dropout = dropout), dropout)
+        encoder_block_layers.append(EncoderBlock(MultiHeadAttentionBlock(d_model, h, dropout), FeedForwardBlock(in_dim = d_model, hidden_dim = ff_hidden_dim, dropout = dropout), dropout))
     encoder_block_layers = nn.ModuleList(encoder_block_layers)
 
     # Encoder
@@ -305,7 +305,7 @@ def build_transformer(src_vocab_size: int, tgt_vocab_size: int, src_seq_len: int
     # -> MultiHeadAttn block (self) + MultiHeadAttn block (cross) + FF block
     decoder_block_layers = []
     for _ in range(N):
-        DecoderBlock(MultiHeadAttentionBlock(d_model, h, dropout), MultiHeadAttentionBlock(d_model, h, dropout), FeedForwardBlock(in_dim = d_model, hidden_dim = ff_hidden_dim, dropout = dropout), dropout)
+        decoder_block_layers.append(DecoderBlock(MultiHeadAttentionBlock(d_model, h, dropout), MultiHeadAttentionBlock(d_model, h, dropout), FeedForwardBlock(in_dim = d_model, hidden_dim = ff_hidden_dim, dropout = dropout), dropout))
     decoder_block_layers = nn.ModuleList(decoder_block_layers)
 
     # Decoder
