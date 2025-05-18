@@ -97,10 +97,10 @@ def train_model(config):
     loss_fn = nn.CrossEntropyLoss(ignore_index = src_tokenizer.token_to_id('[PAD]'), label_smoothing = 0.1)
 
     for epoch in range(initial_epoch, config['num_epochs']):
-        model.train()
         batch_iterator = tqdm(train_dataloader, desc = f"Processing epoch {epoch:02d}")
 
         for batch in batch_iterator:
+            model.train()
             encoder_input = batch['encoder_input'].to(device) # (batch_size, src_seq_len)
             decoder_input = batch['decoder_input'].to(device) # (batch_size, tgt_seq_len)
             encoder_mask = batch['encoder_mask'].to(device) # (batch_size, 1, 1,  src_seq_len)
@@ -120,6 +120,8 @@ def train_model(config):
 
             loss.backward()
             optimizer.step()
+
+            run_validation(model, val_dataloader, src_tokenizer, tgt_tokenizer, config['tgt_seq_len'], device, lambda msg: batch_iterator.writer(msg), global_step)
             global_step += 1
         
         # Save the model at the end of every epoch
@@ -130,6 +132,59 @@ def train_model(config):
             'optimizer_state_dict': optimizer.state_dict(),
             'global_step': global_step
         }, model_filename)
+
+    return
+
+def greedy_decode(model, src, src_mask, src_tokenizer, tgt_tokenizer, tgt_max_len, device):
+    sos_idx = tgt_tokenizer.token_to_id('[SOS]')
+    eos_idx = tgt_tokenizer.token_to_id('[EOS]')
+
+    encoder_output = model.encode(src, src_mask)
+
+    decoder_input = torch.empty(1, 1).fill_(sos_idx).type_as(src).to(device)
+    while True:
+        if decoder_input.size(1) == tgt_max_len:
+            break
+
+        # Mask for the target (decoder input)
+        decoder_mask = causal_mask(decoder_input.size(1)).type_as(src_mask).to(device)
+
+        # Output of the decoder
+        out = model.decode(decoder_input, decoder_mask, encoder_output, src_mask)
+
+        # Pick the word with highest probability - greedy decoding
+        _, next_word = torch.max(out[:, -1])
+
+        # Add the predicted word to the decoder input
+        decoder_input = torch.cat([decoder_input, torch.empty(1, 1).fill_(next_word.item()).type_as(src).to(device)], dim = 1)
+
+        if next_word.item() == eos_idx:
+            break
+
+    return decoder_input
+
+def run_validation(model, val_dataloader, src_tokenizer, tgt_tokenizer, tgt_max_len, device, print_msg, global_state):
+    # Setting the model to eval mode
+    model.eval()
+
+    with torch.no_grad():
+
+        for batch in val_dataloader:
+            encoder_input = batch['encoder_input'].to(device)
+            encoder_mask = batch['encoder_mask'].to(device)
+
+            assert encoder_input.size(0) == 1, "Batch size must be 1 for validation"
+
+            model_output = greedy_decode(model, encoder_input, encoder_mask, src_tokenizer, tgt_tokenizer, tgt_max_len, device)
+
+            src_text = batch['src_text'][0]
+            tgt_text = batch['tgt_text'][0]
+            pred_text = tgt_tokenizer.decode(model_output.detach().cpu().numpy())
+
+            print_msg('-' * 50)
+            print_msg(f'SOURCE: {src_text}')
+            print_msg(f'TARGET: {tgt_text}')
+            print_msg(f'PREDICTED: {pred_text}')
 
     return
 
