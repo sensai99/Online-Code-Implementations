@@ -1,12 +1,18 @@
+import os
+from utils.tool_utils import get_approval
+
 class EditFileTool:
     def __init__(self):
         self.name = "edit_file"
         self.description = "Edit a file"
     
     def edit_file(self, file_path, content):
-        with open(file_path, "a") as f:
-            f.write(content)
-        return "File edited successfully"
+        if get_approval():
+            with open(file_path, "a") as f:
+                f.write(content)
+            return "File edited successfully"
+        else:
+            return "File not edited"
 
     def __call__(self, file_path, content):
         return self.edit_file(file_path, content)
@@ -17,12 +23,34 @@ class CreateFileTool:
         self.description = "Create a new file"
     
     def create_file(self, file_path, content):
-        with open(file_path, "w") as f:
-            f.write(content)
-        return "File created successfully"
+        if get_approval():
+            with open(file_path, "w") as f:
+                f.write(content)
+            return "File created successfully"
+        else:
+            return "File not created"
 
     def __call__(self, file_path, content):
         return self.create_file(file_path, content)
+
+class DeleteFileTool:
+    def __init__(self):
+        self.name = "delete_file"
+        self.description = "Delete a file"
+        self.confirm = False
+    
+    def delete_file(self, file_path):
+        if os.path.exists(file_path):
+            if get_approval():
+                os.remove(file_path)
+                return "File deleted successfully"
+            else:
+                return "File not deleted"
+        else:
+            return "File does not exist!"
+    
+    def __call__(self, file_path):
+        return self.delete_file(file_path)
 
 class NoopTool:
     def __init__(self):
@@ -30,13 +58,14 @@ class NoopTool:
         self.description = "Do not use any tools"
     
     def __call__(self, **kwargs):
-        return "Sorry, looks like your query was incomplete to accomplish the task. Please try again with a more specific query."
+        return ""
 
 class ToolsManager:
     def __init__(self):
         self.tools = {
             "edit_file": EditFileTool(),
             "create_file": CreateFileTool(),
+            "delete_file": DeleteFileTool(),
             "noop": NoopTool()
         }
 
