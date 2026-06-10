@@ -11,8 +11,9 @@ def main():
         if user_input.lower() == "exit":
             break
             
+        print("Agent: \n")
         response = run_agent.run(user_input)
-        print("Agent: \n", response)
+        print(response)
 
 if __name__ == '__main__':
     main()
