@@ -59,3 +59,33 @@ User: hi
 User: I want to add a new feature
 <JSON object>{"message": "Happy to help — what feature do you want to add, and which file(s) should I change?", "actions": [{"tool": "noop"}]}</JSON object>
 """
+
+CONTEXT_PROMPT = """
+You will recieve the context of the conversation so far in the following format:
+User: user message
+Assistant: assistant message
+Tool: tool message (only if it is a tool call and not noop tool call)
+...
+
+The context is a list of messages in the conversation so far. Use this context to understand the conversation and the user's intent and generate the next response.
+
+Example:
+
+Context:
+  User: hi! how are you!
+  Assistant: Hi! I'm here and ready to help you with any coding or file-related tasks. What would you like to do today?
+  User: create a new python file with a simple print statement
+  Assistant: I can create `test.py` with a simple starter script:
+  ```python
+  print('hello')
+  ```
+  Let me know if you want any additional operations or explanations.
+  User: created the file, as user approved the changes
+  Assistant: File created successfully, as user approved the changes
+
+User query:
+  User: Did I delete any file till now?
+
+Response:
+  Assistant: No, you have not deleted any file till now. But you have created a new file called `test.py` with a simple print statement.
+"""
