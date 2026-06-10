@@ -25,7 +25,18 @@
     - How much time did it take? i.e. the number of operations that it invoked
 
 
-## Features:
+## TODOs:
 
 - The agentic system should be more interactive and not independent - i.e. it should first show what it's planning to do and then ask approval from the user whether it should proceed
 
+    - It is now more interactive - responds it's thoughts about the user message instead of just performing the action.
+
+- Context Management: Use the entire conversation history as context
+
+- Add read_file tool, so that system can inspect existing files to fix bugs, etc.
+
+- format for context in prompts.py doesn't match with what we are passing (JSON Object instead of the specified format). This is broken, fix it
+
+- any failures (e.g. file parsing, etc) -> have a retry mechanism
+
+- run a tool call for verification of code
