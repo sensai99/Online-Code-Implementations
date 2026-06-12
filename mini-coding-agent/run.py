@@ -16,7 +16,7 @@ def build_prompt(context):
 
 def extract_tools_object(tools_response):
     try:
-        blocks = re.search(r'<JSON object>(.*)</JSON object>', tools_response, re.DOTALL).group(1)
+        blocks = re.search(r'<answer>(.*)</answer>', tools_response, re.DOTALL).group(1)
         return json.loads(blocks)
     except Exception as e:
         raise ValueError(f"Error extracting tools object: {json.dumps({
