@@ -1,51 +1,49 @@
-from prompts import SYSTEM_PROMPT, INSTRUCTION_PROMPT, TOOLS_PROMPT
+from prompts import SYSTEM_PROMPT, INSTRUCTION_PROMPT, TOOLS_PROMPT, CONTEXT_PROMPT
 import re
 from tools import ToolsManager
 from llms import LLMManager
 import json
 
-def build_prompt(user_input):
+def build_prompt(context):
     # return f"""
     # {SYSTEM_PROMPT}
     # {INSTRUCTION_PROMPT}
     # {TOOLS_PROMPT}
     # "User query: "{user_input}"
     # """
-    system_prompt = SYSTEM_PROMPT + INSTRUCTION_PROMPT + TOOLS_PROMPT
-    return system_prompt, user_input
+    system_prompt = SYSTEM_PROMPT + INSTRUCTION_PROMPT + TOOLS_PROMPT + CONTEXT_PROMPT + "\n\nContext: " + json.dumps(context)
+    return system_prompt
 
-def extract_tools_object(tools_response):
-    blocks = re.search(r'<JSON object>(.*)</JSON object>', tools_response, re.DOTALL).group(1)
-    return json.loads(blocks)
+def run(context):
 
-def run(user_input):
+    # new context of the conversation
+    new_context = []
     
     # init all the necessary components
     tools_manager = ToolsManager()
     llm_manager = LLMManager(client_type="azure")
     
     # build the prompt
-    system_prompt, user_prompt = build_prompt(user_input)
+    system_prompt = build_prompt(context)
+    user_prompt = context[-1]["content"] # last user message is the user query
     
-    # call the LLM to determine the tools to use
-    tools_response = llm_manager.call_llm(system_prompt, user_prompt, model="gpt-4.1-mini")
-
-    # convert the tools response to a JSON object
-    tools_object = extract_tools_object(tools_response)
+    # call the LLM to determine the tools to use 
+    # get the response object from the LLM
+    response_object, errors = llm_manager.get_response_object(system_prompt, user_prompt, model="gpt-4.1-mini")
     
     # print the initial response from the LLM
-    print(tools_object['message'])
+    llm_response = response_object['message']
+    new_context.append({"role": "assistant", "content": {"response": llm_response, "actions": response_object['actions'], "errors": errors}})
+    print(llm_response)
     
     # approval + apply the tools
-    response = ""
-    for tool_object in tools_object['actions']:
-        # if 'content' in tool_object:
-        #     print(tool_object['content'])
-        
+    for tool_object in response_object['actions']:
         tool_name = tool_object['tool']
         parameters = {k: v for k, v in tool_object.items() if k != 'tool'}
         result = tools_manager(tool_name, **parameters)
-        response += result
 
+        if tool_name != "noop":
+            new_context.append({"role": "tool", "content": result})
+    
     # return the final result
-    return response
+    return new_context

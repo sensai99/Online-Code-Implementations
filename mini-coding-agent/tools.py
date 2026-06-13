@@ -7,12 +7,12 @@ class EditFileTool:
         self.description = "Edit a file"
     
     def edit_file(self, file_path, content):
-        if get_approval():
+        if get_approval(action="edit_file", kwargs={"file_path": file_path}):
             with open(file_path, "a") as f:
                 f.write(content)
-            return "File edited successfully"
+            return "File edited successfully, as user approved the changes"
         else:
-            return "File not edited"
+            return "File not edited, as user did not approve the changes"
 
     def __call__(self, file_path, content):
         return self.edit_file(file_path, content)
@@ -23,12 +23,12 @@ class CreateFileTool:
         self.description = "Create a new file"
     
     def create_file(self, file_path, content):
-        if get_approval():
+        if get_approval(action="create_file", kwargs={"file_path": file_path}):
             with open(file_path, "w") as f:
                 f.write(content)
-            return "File created successfully"
+            return "File created successfully, as user approved the changes"
         else:
-            return "File not created"
+            return "File not created, as user did not approve the changes"
 
     def __call__(self, file_path, content):
         return self.create_file(file_path, content)
@@ -41,11 +41,11 @@ class DeleteFileTool:
     
     def delete_file(self, file_path):
         if os.path.exists(file_path):
-            if get_approval():
+            if get_approval(action="delete_file", kwargs={"file_path": file_path}):
                 os.remove(file_path)
-                return "File deleted successfully"
+                return "File deleted successfully, as user approved the changes"
             else:
-                return "File not deleted"
+                return "File not deleted, as user did not approve the changes"
         else:
             return "File does not exist!"
     

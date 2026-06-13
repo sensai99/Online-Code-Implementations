@@ -1,6 +1,9 @@
 from openai import OpenAI
 from google import genai
 from constants import OPENAI_OPENROUTER_BASE_URL, GOOGLE_API_KEY, AZURE_API_KEY, OPENAI_API_KEY, OPENAI_AZURE_BASE_URL
+import re
+import json
+from constants import MAX_RETRIES
 
 class LLMManager:
     def __init__(self, client_type="openai"):
@@ -35,3 +38,22 @@ class LLMManager:
                 messages=[{"role": "system", "content": system_prompt}, 
                 {"role": "user", "content": user_prompt}]
             ).choices[0].message.content
+    
+    def get_response_object(self, system_prompt, user_prompt, model="liquid/lfm-2.5-1.2b-instruct:free"):
+        retries = 0
+        errors = {}
+        while retries < MAX_RETRIES:
+            try:
+                response = self.call_llm(system_prompt, user_prompt, model)
+                blocks = re.search(r'<answer>(.*)</answer>', response, re.DOTALL).group(1)
+                return json.loads(blocks), errors
+            except Exception as e:
+                retries += 1
+                errors[retries] = {"retry_number": retries, "error": str(e), "response": response}
+                if retries == MAX_RETRIES:
+                    response = {
+                        "message": "I'm sorry, I'm having trouble understanding your request. Please try again. Error: " + str(e),
+                        "actions": [{"tool": "noop"}]
+                    }
+                    return response, errors
+        return None, {}
