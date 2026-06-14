@@ -31,6 +31,9 @@ create_file — user wants to create a new file.
 edit_file — user wants to modify a specific file.
   Fields: tool, file_path, content
 
+read_file — user wants to read a specific file.
+  Fields: tool, file_path
+
 delete_file — user wants to delete a specific file.
   Fields: tool, file_path
 
@@ -52,6 +55,9 @@ User: Edit src/main.py to print hello
 
 User: Delete the file test.py
 <answer>{"message": "I'll delete `test.py`. This can't be undone — approve only if you're sure.", "actions": [{"tool": "delete_file", "file_path": "test.py"}]}</answer>
+
+User: Read the file file.py
+<answer>{"message": "Sure! Let me read `file.py`", "actions": [{"tool": "read_file", "file_path": "file.py"}]}</answer>
 
 User: hi
 <answer>{"message": "Hi! I can help you create, edit, or delete files. What would you like to do?", "actions": [{"tool": "noop"}]}</answer>

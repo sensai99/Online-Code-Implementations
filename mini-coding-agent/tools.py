@@ -33,6 +33,21 @@ class CreateFileTool:
     def __call__(self, file_path, content):
         return self.create_file(file_path, content)
 
+class ReadFileTool:
+    def __init__(self):
+        self.name = "read_file"
+        self.description = "Read a file"
+    
+    def read_file(self, file_path):
+        if os.path.exists(file_path):
+            with open(file_path, "r") as f:
+                return f.read()
+        else:
+            return "File does not exist!"
+    
+    def __call__(self, file_path):
+        return self.read_file(file_path)
+
 class DeleteFileTool:
     def __init__(self):
         self.name = "delete_file"
@@ -66,6 +81,7 @@ class ToolsManager:
             "edit_file": EditFileTool(),
             "create_file": CreateFileTool(),
             "delete_file": DeleteFileTool(),
+            "read_file": ReadFileTool(),
             "noop": NoopTool()
         }
 
